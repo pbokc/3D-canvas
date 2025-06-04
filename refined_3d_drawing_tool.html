@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Drawing Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            color: #e5e5e5;
+            user-select: none;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 280px;
+        }
+        
+        #editToggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 14px 18px;
+            border-radius: 25px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #editToggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        }
+        
+        #editToggle.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: rgba(102, 126, 234, 0.5);
+        }
+        
+        .edit-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        
+        .edit-text {
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+        }
+        
+        #controls.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #b0b0b0;
+            letter-spacing: -0.01em;
+        }
+        
+        .shape-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e5e5e5;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            letter-spacing: -0.01em;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+        
+        button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: rgba(102, 126, 234, 0.5);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .mode-btn {
+            min-width: 65px;
+        }
+        
+        .shape-btn {
+            min-width: 55px;
+        }
+        
+        #selectedObjectControls {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        #selectedObjectControls .control-group {
+            margin-bottom: 12px;
+        }
+        
+        #selectedObjectControls .control-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        #selectionLabel {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .action-btn {
+            font-size: 11px;
+            padding: 7px 10px;
+            border-radius: 6px;
+        }
+        
+        .resize-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .resize-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 0;
+        }
+        
+        #currentScale {
+            color: #b0b0b0;
+            min-width: 50px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        input[type="color"] {
+            width: 45px;
+            height: 35px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            background: transparent;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            margin-top: 6px;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: 2px solid rgba(20, 20, 20, 0.8);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: 2px solid rgba(20, 20, 20, 0.8);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 18px;
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            font-size: 12px;
+            color: #b0b0b0;
+            max-width: 350px;
+            line-height: 1.5;
+        }
+        
+        #info strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        #helpToggle {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #b0b0b0;
+            padding: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        #helpToggle:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        #navigationHelp {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(20, 20, 20, 0.98);
+            padding: 0;
+            border-radius: 16px;
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e5e5e5;
+            font-size: 14px;
+            max-width: 600px;
+            max-height: 80vh;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            display: none;
+            overflow: hidden;
+        }
+        
+        .help-content {
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 32px;
+            padding-right: 20px;
+        }
+        
+        #navigationHelp.show {
+            display: block;
+            animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes fadeInUp {
+            from { 
+                opacity: 0; 
+                transform: translate(-50%, -45%) scale(0.95); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translate(-50%, -50%) scale(1); 
+            }
+        }
+        
+        .help-section {
+            margin-bottom: 24px;
+        }
+        
+        .help-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .help-section h3 {
+            color: #ffffff;
+            margin-bottom: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        
+        .help-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .help-key {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 10px;
+            color: #ffd700;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        
+        #infoToggle {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        #infoToggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #b0b0b0;
+        }
+        
+        #infoContent {
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        #infoContent.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-top: -8px;
+        }
+        
+        .help-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            z-index: 201;
+        }
+        
+        .help-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #b0b0b0;
+        }
+        
+        #canvas {
+            display: block;
+        }
+        
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            color: #ffffff;
+            font-size: 13px;
+        }
+        
+        #shapeControls.hidden {
+            display: none;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        button:focus,
+        input:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="editToggle" class="active">
+            <svg class="edit-icon" viewBox="0 0 24 24">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+            <span class="edit-text">Edit Mode</span>
+        </div>
+        
+        <div id="controls">
+            <div class="control-group">
+                <label>Tool Mode</label>
+                <div class="shape-buttons">
+                    <button id="shapeMode" class="mode-btn active">Shape</button>
+                    <button id="lineMode" class="mode-btn">Line</button>
+                    <button id="arrowMode" class="mode-btn">Arrow</button>
+                    <button id="selectMode" class="mode-btn">Select</button>
+                </div>
+            </div>
+            
+            <div class="control-group" id="shapeControls">
+                <label>Shape Type</label>
+                <div class="shape-buttons">
+                    <button id="cube" class="shape-btn active">Cube</button>
+                    <button id="sphere" class="shape-btn">Sphere</button>
+                    <button id="cylinder" class="shape-btn">Cylinder</button>
+                    <button id="cone" class="shape-btn">Cone</button>
+                    <button id="torus" class="shape-btn">Torus</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Color</label>
+                <input type="color" id="colorPicker" value="#667eea">
+            </div>
+            
+            <div class="control-group">
+                <label>Size</label>
+                <input type="range" id="sizeSlider" min="0.5" max="3" value="1" step="0.1">
+            </div>
+            
+            <div class="control-group">
+                <div class="action-buttons">
+                    <button id="clearAll" class="action-btn">Clear All</button>
+                    <button id="randomColors" class="action-btn">Random Colors</button>
+                </div>
+            </div>
+            
+            <div class="control-group" id="selectedObjectControls" style="display: none;">
+                <label id="selectionLabel">Selected Object</label>
+                <div class="action-buttons">
+                    <button id="copyBtn" class="action-btn">Copy</button>
+                    <button id="deleteBtn" class="action-btn">Delete</button>
+                    <button id="groupBtn" class="action-btn" style="display: none;">Group</button>
+                    <button id="ungroupBtn" class="action-btn" style="display: none;">Ungroup</button>
+                </div>
+                <div class="resize-controls">
+                    <button id="shrinkBtn" class="resize-btn">−</button>
+                    <span id="currentScale">1.0×</span>
+                    <button id="growBtn" class="resize-btn">+</button>
+                </div>
+                <input type="range" id="resizeSlider" min="0.2" max="4" value="1" step="0.1">
+            </div>
+        </div>
+        
+        <div id="info">
+            <div class="info-header">
+                <span class="info-title">Quick Reference</span>
+                <button id="infoToggle">−</button>
+            </div>
+            <div id="infoContent">
+                <span id="editModeInfo">
+                    <strong>Shape:</strong> Click to place • <strong>Line/Arrow:</strong> Click 2 shapes<br>
+                    <strong>Select:</strong> Click/drag to multi-select • <strong>Ctrl+Click:</strong> Add to selection<br>
+                    <strong>Move:</strong> Drag selected • <strong>Copy:</strong> <span class="help-key">Ctrl+C</span> • <strong>Resize:</strong> <span class="help-key">+−</span><br>
+                    <span class="help-key">WASD</span> move • <span class="help-key">QE</span> up/down • <span class="help-key">R</span> reset
+                </span>
+                <span id="viewModeInfo" style="display: none;">
+                    View-only mode • <span class="help-key">Space</span> to enable editing<br>
+                    <span class="help-key">WASD</span> move • <span class="help-key">QE</span> up/down • <span class="help-key">+−</span> zoom<br>
+                    <span class="help-key">R</span> reset camera position
+                </span>
+            </div>
+        </div>
+        
+        <div id="helpToggle" title="Navigation Help">?</div>
+        
+        <div id="navigationHelp">
+            <button class="help-close">×</button>
+            <div class="help-content">
+                <h2 style="margin-top: 0; color: #ffffff; font-size: 20px; font-weight: 600; margin-bottom: 24px;">Complete Controls Reference</h2>
+                
+                <div class="help-section">
+                    <h3>🖱️ Mouse Controls</h3>
+                    <div class="help-item">
+                        <span>Rotate View</span>
+                        <span class="help-key">Left Drag</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Pan Camera</span>
+                        <span class="help-key">Middle Drag</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Zoom In/Out</span>
+                        <span class="help-key">Scroll Wheel</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Place Shape (Shape Mode)</span>
+                        <span class="help-key">Left Click</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Connect Shapes (Line/Arrow Mode)</span>
+                        <span class="help-key">Click 2 Shapes</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Select Object</span>
+                        <span class="help-key">Left Click</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Multi-Select Objects</span>
+                        <span class="help-key">Ctrl + Click</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Drag Selected Objects</span>
+                        <span class="help-key">Click + Drag</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Selection Box</span>
+                        <span class="help-key">Drag Empty Area</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Delete Shape/Connection</span>
+                        <span class="help-key">Right Click</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h3>⌨️ Navigation Keys</h3>
+                    <div class="help-item">
+                        <span>Move Forward</span>
+                        <span class="help-key">W</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Move Backward</span>
+                        <span class="help-key">S</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Move Left</span>
+                        <span class="help-key">A</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Move Right</span>
+                        <span class="help-key">D</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Move Up</span>
+                        <span class="help-key">Q</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Move Down</span>
+                        <span class="help-key">E</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Fast Movement</span>
+                        <span class="help-key">Shift + WASDQE</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Zoom In</span>
+                        <span class="help-key">+ / =</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Zoom Out</span>
+                        <span class="help-key">- / _</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Reset Camera</span>
+                        <span class="help-key">R</span>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔧 Edit Mode Keys</h3>
+                    <div class="help-item">
+                        <span>Toggle Edit/View Mode</span>
+                        <span class="help-key">Space</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Copy Selected Objects</span>
+                        <span class="help-key">Ctrl + C</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Select All Objects</span>
+                        <span class="help-key">Ctrl + A</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Group Selected Objects</span>
+                        <span class="help-key">Ctrl + G</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Ungroup Selected</span>
+                        <span class="help-key">Ctrl + U</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Delete Selected</span>
+                        <span class="help-key">Delete / Backspace</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Resize Selected Larger</span>
+                        <span class="help-key">+ / =</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Resize Selected Smaller</span>
+                        <span class="help-key">- / _</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Clear Selection</span>
+                        <span class="help-key">Esc</span>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🎨 Tool Modes</h3>
+                    <div style="color: #b0b0b0; line-height: 1.6; margin-bottom: 16px;">
+                        <strong style="color: #ffffff;">Shape Mode:</strong> Click on the grid to place new shapes. You can change the shape type, color, and size before placing. Selected shapes can be dragged around.<br><br>
+                        <strong style="color: #ffffff;">Line Mode:</strong> Click on two shapes to connect them with a straight line. The first shape will glow green when selected, and the second click creates the connection.<br><br>
+                        <strong style="color: #ffffff;">Arrow Mode:</strong> Similar to line mode, but creates directional arrows pointing from the first shape to the second.<br><br>
+                        <strong style="color: #ffffff;">Select Mode:</strong> Specialized for multi-selection. Click individual objects, drag selection boxes, or use Ctrl+Click to build complex selections.
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>📐 Shape Controls</h3>
+                    <div class="help-item">
+                        <span>Available Shapes</span>
+                        <span style="color: #b0b0b0; font-size: 12px;">Cube, Sphere, Cylinder, Cone, Torus</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Color Picker</span>
+                        <span style="color: #b0b0b0; font-size: 12px;">Set color before placing</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Size Slider</span>
+                        <span style="color: #b0b0b0; font-size: 12px;">0.5x to 3x scale</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Random Colors Button</span>
+                        <span style="color: #b0b0b0; font-size: 12px;">Randomize all object colors</span>
+                    </div>
+                    <div class="help-item">
+                        <span>Clear All Button</span>
+                        <span style="color: #b0b0b0; font-size: 12px;">Remove all objects and connections</span>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🎯 Selection Features</h3>
+                    <div style="color: #b0b0b0; line-height: 1.6; margin-bottom: 16px;">
+                        <strong style="color: #ffffff;">Single Selection:</strong> Click any object to select it. Selected objects glow yellow and show resize controls.<br><br>
+                        <strong style="color: #ffffff;">Multi-Selection:</strong> Hold Ctrl and click multiple objects, or drag a selection box around multiple objects.<br><br>
+                        <strong style="color: #ffffff;">Group Operations:</strong> Select multiple objects and group them together. Groups can be moved and resized as a unit.<br><br>
+                        <strong style="color: #ffffff;">Copy & Paste:</strong> Selected objects can be copied with Ctrl+C, creating duplicates offset from the originals.
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔗 Connections</h3>
+                    <div style="color: #b0b0b0; line-height: 1.6; margin-bottom: 16px;">
+                        <strong style="color: #ffffff;">Lines:</strong> Connect any two shapes with straight lines. Lines automatically update when connected shapes are moved.<br><br>
+                        <strong style="color: #ffffff;">Arrows:</strong> Create directional connections with arrowheads. The arrow points from the first clicked shape to the second.<br><br>
+                        <strong style="color: #ffffff;">Smart Updates:</strong> All connections automatically reposition when their connected shapes are moved or resized.<br><br>
+                        <strong style="color: #ffffff;">Connection Deletion:</strong> Right-click any line or arrow to delete it. Deleting a shape removes all its connections.
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>💡 Pro Tips</h3>
+                    <div style="color: #b0b0b0; line-height: 1.6;">
+                        • Hold <span class="help-key">Shift</span> while moving with WASD for faster camera navigation<br>
+                        • Use the middle mouse button for smooth panning around your scene<br>
+                        • The camera automatically focuses on the center point while rotating<br>
+                        • Press <span class="help-key">R</span> anytime to return to the default camera view<br>
+                        • Toggle between Edit and View modes with <span class="help-key">Space</span> for presentation<br>
+                        • Objects have subtle floating animations and rotate slowly for visual appeal<br>
+                        • Right-click for quick deletion of any object or connection<br>
+                        • The grid helps with precise placement and provides visual reference<br>
+                        • Use groups to organize complex scenes and move related objects together
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: document.getElementById('canvas'),
+            antialias: true 
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+        
+        const pointLight = new THREE.PointLight(0x667eea, 0.6, 50);
+        pointLight.position.set(-10, 10, 10);
+        scene.add(pointLight);
+        
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x444444);
+        scene.add(gridHelper);
+        
+        // Variables
+        let currentShape = 'cube';
+        let currentColor = '#667eea';
+        let currentSize = 1;
+        let shapes = [];
+        let connections = []; // Store lines and arrows
+        let groups = []; // Store grouped objects
+        let mouse = new THREE.Vector2();
+        let raycaster = new THREE.Raycaster();
+        let hoveredObject = null;
+        let editMode = true;
+        let toolMode = 'shape'; // 'shape', 'line', 'arrow', 'select'
+        let connectionStart = null; // First shape selected for connection
+        let selectedObjects = []; // Multiple selected objects
+        let isDragging = false; // Track if we're dragging objects
+        let dragOffset = new THREE.Vector3(); // Offset for smooth dragging
+        let isSelectionDrag = false; // Track if we're doing selection box drag
+        let selectionStart = new THREE.Vector2(); // Start of selection box
+        
+        // Mouse controls
+        let isMouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let rotationX = 0;
+        let rotationY = 0;
+        
+        // Create shape geometries
+        const geometries = {
+            cube: new THREE.BoxGeometry(1, 1, 1),
+            sphere: new THREE.SphereGeometry(0.5, 32, 32),
+            cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 32),
+            cone: new THREE.ConeGeometry(0.5, 1, 32),
+            torus: new THREE.TorusGeometry(0.4, 0.2, 16, 32)
+        };
+        
+        // Event listeners
+        document.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('wheel', onMouseWheel);
+        document.addEventListener('contextmenu', onRightClick);
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+        window.addEventListener('resize', onWindowResize);
+        
+        // Keyboard controls
+        const keys = {};
+        let cameraSpeed = 0.1;
+        const baseSpeed = 0.1;
+        const fastSpeed = 0.3;
+        
+        // Control event listeners
+        document.querySelectorAll('.shape-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentShape = e.target.id;
+            });
+        });
+        
+        // Helper function to clear connection highlights
+        function clearConnectionHighlights() {
+            shapes.forEach(shape => {
+                if (shape && shape.material && shape.material.emissive) {
+                    shape.material.emissive.setHex(0x000000);
+                }
+            });
+        }
+        
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                toolMode = e.target.id.replace('Mode', '');
+                
+                // Show/hide shape controls based on mode
+                const shapeControls = document.getElementById('shapeControls');
+                
+                if (toolMode === 'shape') {
+                    shapeControls.classList.remove('hidden');
+                } else {
+                    shapeControls.classList.add('hidden');
+                }
+                
+                // Reset connection states when changing modes
+                connectionStart = null;
+                clearConnectionHighlights();
+            });
+        });
+        
+        document.getElementById('colorPicker').addEventListener('change', (e) => {
+            currentColor = e.target.value;
+        });
+        
+        document.getElementById('sizeSlider').addEventListener('input', (e) => {
+            currentSize = parseFloat(e.target.value);
+        });
+        
+        document.getElementById('resizeSlider').addEventListener('input', (e) => {
+            if (selectedObjects.length === 1 && !selectedObjects[0].userData.isGroup) {
+                const newScale = parseFloat(e.target.value);
+                selectedObjects[0].scale.setScalar(newScale);
+                selectedObjects[0].userData.scale = newScale;
+                document.getElementById('currentScale').textContent = newScale.toFixed(1) + '×';
+                updateConnections();
+            }
+        });
+        
+        document.getElementById('shrinkBtn').addEventListener('click', () => {
+            resizeSelectedObjects(-0.1);
+        });
+        
+        document.getElementById('growBtn').addEventListener('click', () => {
+            resizeSelectedObjects(0.1);
+        });
+        
+        document.getElementById('copyBtn').addEventListener('click', copySelectedObjects);
+        document.getElementById('deleteBtn').addEventListener('click', deleteSelectedObjects);
+        document.getElementById('groupBtn').addEventListener('click', groupSelectedObjects);
+        document.getElementById('ungroupBtn').addEventListener('click', ungroupSelectedObjects);
+        
+        document.getElementById('clearAll').addEventListener('click', clearAll);
+        document.getElementById('randomColors').addEventListener('click', randomizeColors);
+        document.getElementById('editToggle').addEventListener('click', toggleEditMode);
+        document.getElementById('helpToggle').addEventListener('click', showNavigationHelp);
+        document.querySelector('.help-close').addEventListener('click', hideNavigationHelp);
+        document.getElementById('infoToggle').addEventListener('click', toggleQuickTips);
+        
+        // Close help popup when clicking outside
+        document.getElementById('navigationHelp').addEventListener('click', (e) => {
+            if (e.target.id === 'navigationHelp') {
+                hideNavigationHelp();
+            }
+        });
+        
+        function toggleEditMode() {
+            editMode = !editMode;
+            const toggle = document.getElementById('editToggle');
+            const controls = document.getElementById('controls');
+            const editModeInfo = document.getElementById('editModeInfo');
+            const viewModeInfo = document.getElementById('viewModeInfo');
+            
+            if (editMode) {
+                toggle.classList.add('active');
+                toggle.querySelector('.edit-text').textContent = 'Edit Mode';
+                controls.classList.remove('disabled');
+                editModeInfo.style.display = 'block';
+                viewModeInfo.style.display = 'none';
+            } else {
+                toggle.classList.remove('active');
+                toggle.querySelector('.edit-text').textContent = 'View Mode';
+                controls.classList.add('disabled');
+                editModeInfo.style.display = 'none';
+                viewModeInfo.style.display = 'block';
+                
+                // Clear any hover effects when leaving edit mode
+                if (hoveredObject) {
+                    hoveredObject.material.emissive.setHex(0x000000);
+                    hoveredObject = null;
+                }
+                document.body.style.cursor = 'default';
+            }
+        }
+        
+        function showNavigationHelp() {
+            document.getElementById('navigationHelp').classList.add('show');
+        }
+        
+        function hideNavigationHelp() {
+            document.getElementById('navigationHelp').classList.remove('show');
+        }
+        
+        function toggleQuickTips() {
+            const content = document.getElementById('infoContent');
+            const toggle = document.getElementById('infoToggle');
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                toggle.textContent = '−';
+            } else {
+                content.classList.add('hidden');
+                toggle.textContent = '+';
+            }
+        }
+        
+        function onKeyDown(event) {
+            keys[event.code] = true;
+            
+            // Handle specific key commands
+            switch(event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    toggleEditMode();
+                    break;
+                case 'KeyR':
+                    resetCamera();
+                    break;
+                case 'Equal':
+                case 'NumpadAdd':
+                    if (selectedObjects.length > 0) {
+                        resizeSelectedObjects(0.1);
+                    } else {
+                        zoomIn();
+                    }
+                    break;
+                case 'Minus':
+                case 'NumpadSubtract':
+                    if (selectedObjects.length > 0) {
+                        resizeSelectedObjects(-0.1);
+                    } else {
+                        zoomOut();
+                    }
+                    break;
+                case 'KeyC':
+                    if (keys['ControlLeft'] || keys['ControlRight']) {
+                        event.preventDefault();
+                        copySelectedObjects();
+                    }
+                    break;
+                case 'KeyG':
+                    if (keys['ControlLeft'] || keys['ControlRight']) {
+                        event.preventDefault();
+                        if (selectedObjects.length > 1) {
+                            groupSelectedObjects();
+                        }
+                    }
+                    break;
+                case 'KeyU':
+                    if (keys['ControlLeft'] || keys['ControlRight']) {
+                        event.preventDefault();
+                        ungroupSelectedObjects();
+                    }
+                    break;
+                case 'Delete':
+                case 'Backspace':
+                    if (selectedObjects.length > 0) {
+                        event.preventDefault();
+                        deleteSelectedObjects();
+                    }
+                    break;
+                case 'Escape':
+                    hideNavigationHelp();
+                    clearSelection();
+                    break;
+                case 'KeyA':
+                    if (keys['ControlLeft'] || keys['ControlRight']) {
+                        event.preventDefault();
+                        selectAllObjects();
+                    }
+                    break;
+            }
+            
+            // Update speed based on shift key
+            cameraSpeed = keys['ShiftLeft'] || keys['ShiftRight'] ? fastSpeed : baseSpeed;
+        }
+        
+        function onKeyUp(event) {
+            keys[event.code] = false;
+            cameraSpeed = keys['ShiftLeft'] || keys['ShiftRight'] ? fastSpeed : baseSpeed;
+        }
+        
+        function resetCamera() {
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            targetRotationX = 0;
+            targetRotationY = 0;
+            rotationX = 0;
+            rotationY = 0;
+        }
+        
+        function zoomIn() {
+            camera.position.multiplyScalar(0.9);
+        }
+        
+        function zoomOut() {
+            camera.position.multiplyScalar(1.1);
+        }
+        
+        function onMouseDown(event) {
+            if (event.target.tagName === 'CANVAS') {
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+                
+                if (event.button === 0 && editMode) { // Left click in edit mode
+                    // Calculate mouse position in normalized device coordinates
+                    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                    
+                    raycaster.setFromCamera(mouse, camera);
+                    const shapeIntersects = raycaster.intersectObjects(shapes);
+                    
+                    if (shapeIntersects.length > 0) {
+                        const clickedShape = shapeIntersects[0].object;
+                        
+                        if (toolMode === 'shape') {
+                            // Single selection and prepare for dragging
+                            if (!keys['ControlLeft'] && !keys['ControlRight']) {
+                                setSelection([clickedShape]);
+                            } else {
+                                toggleObjectSelection(clickedShape);
+                            }
+                            setupDragging(clickedShape, shapeIntersects[0].point);
+                        } else if (toolMode === 'select') {
+                            // Multi-selection mode
+                            if (keys['ControlLeft'] || keys['ControlRight']) {
+                                toggleObjectSelection(clickedShape);
+                            } else {
+                                if (selectedObjects.includes(clickedShape)) {
+                                    // Start dragging selected group
+                                    setupGroupDragging(clickedShape, shapeIntersects[0].point);
+                                } else {
+                                    // Select single object
+                                    setSelection([clickedShape]);
+                                    setupDragging(clickedShape, shapeIntersects[0].point);
+                                }
+                            }
+                        } else if (toolMode === 'line' || toolMode === 'arrow') {
+                            // Handle shape selection for connections
+                            handleShapeSelection(clickedShape);
+                        }
+                    } else {
+                        // Clicked on empty space
+                        if (toolMode === 'shape') {
+                            // Deselect and place new shape
+                            clearSelection();
+                            const gridIntersects = raycaster.intersectObject(gridHelper);
+                            if (gridIntersects.length > 0) {
+                                const point = gridIntersects[0].point;
+                                point.y = 0;
+                                createShape(point);
+                            }
+                        } else if (toolMode === 'select') {
+                            // Start selection box drag
+                            if (!keys['ControlLeft'] && !keys['ControlRight']) {
+                                clearSelection();
+                            }
+                            startSelectionBox();
+                        } else {
+                            // In line/arrow mode, deselect
+                            clearSelection();
+                        }
+                    }
+                }
+            }
+        }
+        
+        function onMouseMove(event) {
+            if (event.target.tagName === 'CANVAS') {
+                // Update mouse position for hover detection
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                if (isMouseDown) {
+                    const deltaX = event.clientX - mouseX;
+                    const deltaY = event.clientY - mouseY;
+                    
+                    if (isDragging && selectedObjects.length > 0 && (toolMode === 'shape' || toolMode === 'select')) {
+                        // Handle object dragging
+                        handleObjectDragging();
+                    } else if (isSelectionDrag && toolMode === 'select') {
+                        // Handle selection box dragging
+                        updateSelectionBox();
+                    } else if (event.buttons === 1) { // Left mouse button - rotate camera
+                        targetRotationX += deltaY * 0.01;
+                        targetRotationY += deltaX * 0.01;
+                        targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
+                    } else if (event.buttons === 4) { // Middle mouse button - pan
+                        const panSpeed = 0.01;
+                        const right = new THREE.Vector3();
+                        const up = new THREE.Vector3();
+                        
+                        camera.getWorldDirection(new THREE.Vector3());
+                        right.setFromMatrixColumn(camera.matrix, 0);
+                        up.setFromMatrixColumn(camera.matrix, 1);
+                        
+                        camera.position.add(right.multiplyScalar(-deltaX * panSpeed));
+                        camera.position.add(up.multiplyScalar(deltaY * panSpeed));
+                    }
+                    
+                    mouseX = event.clientX;
+                    mouseY = event.clientY;
+                }
+                
+                // Check for hover only in edit mode
+                if (editMode && !isDragging && !isSelectionDrag) {
+                    checkHover();
+                }
+            }
+        }
+        
+        function onMouseUp(event) {
+            isMouseDown = false;
+            
+            if (isSelectionDrag) {
+                finishSelectionBox();
+                isSelectionDrag = false;
+            }
+            
+            isDragging = false;
+            
+            if (selectedObjects.length > 0) {
+                updateConnections(); // Update any connections after moving
+            }
+        }
+        
+        function onMouseWheel(event) {
+            if (event.target.tagName === 'CANVAS') {
+                event.preventDefault();
+                const scale = event.deltaY > 0 ? 1.1 : 0.9;
+                camera.position.multiplyScalar(scale);
+                camera.position.x = Math.max(-20, Math.min(20, camera.position.x));
+                camera.position.y = Math.max(1, Math.min(20, camera.position.y));
+                camera.position.z = Math.max(-20, Math.min(20, camera.position.z));
+            }
+        }
+        
+        function onRightClick(event) {
+            if (event.target.tagName === 'CANVAS' && editMode) {
+                event.preventDefault();
+                
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                
+                // Check for shapes first
+                const shapeIntersects = raycaster.intersectObjects(shapes);
+                if (shapeIntersects.length > 0) {
+                    const object = shapeIntersects[0].object;
+                    deleteShape(object);
+                    return;
+                }
+                
+                // Check for connections
+                const connectionIntersects = raycaster.intersectObjects(connections);
+                if (connectionIntersects.length > 0) {
+                    const object = connectionIntersects[0].object;
+                    deleteConnection(object);
+                }
+            }
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function createShape(position) {
+            const geometry = geometries[currentShape].clone();
+            const material = new THREE.MeshLambertMaterial({ 
+                color: currentColor,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.copy(position);
+            mesh.scale.setScalar(currentSize);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            // Store original scale for resizing
+            mesh.userData.scale = currentSize;
+            
+            // Add some random rotation for visual interest
+            mesh.rotation.x = Math.random() * Math.PI * 2;
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            mesh.rotation.z = Math.random() * Math.PI * 2;
+            
+            scene.add(mesh);
+            shapes.push(mesh);
+            
+            // Add entrance animation
+            mesh.scale.setScalar(0);
+            animateIn(mesh, currentSize);
+        }
+        
+        function animateIn(mesh, targetScale) {
+            const startTime = Date.now();
+            const duration = 300;
+            
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+                
+                mesh.scale.setScalar(easeProgress * targetScale);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            }
+            
+            animate();
+        }
+        
+        function checkHover() {
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Check shapes and connections
+            const allObjects = [...shapes, ...connections];
+            const intersects = raycaster.intersectObjects(allObjects);
+            
+            // Reset previous hover
+            if (hoveredObject && hoveredObject.material && hoveredObject.material.emissive && !selectedObjects.includes(hoveredObject)) {
+                hoveredObject.material.emissive.setHex(0x000000);
+                hoveredObject = null;
+            }
+            
+            // Set new hover
+            if (intersects.length > 0) {
+                hoveredObject = intersects[0].object;
+                
+                // Make sure the object has the material structure we expect and isn't selected
+                if (hoveredObject && hoveredObject.material && hoveredObject.material.emissive && !selectedObjects.includes(hoveredObject)) {
+                    // Different hover colors for different tool modes
+                    if (toolMode === 'shape' || toolMode === 'select') {
+                        hoveredObject.material.emissive.setHex(0x222222);
+                    } else if ((toolMode === 'line' || toolMode === 'arrow') && shapes.includes(hoveredObject)) {
+                        if (connectionStart === hoveredObject) {
+                            hoveredObject.material.emissive.setHex(0x004400); // Green for selected
+                        } else {
+                            hoveredObject.material.emissive.setHex(0x440000); // Red for potential target
+                        }
+                    } else {
+                        hoveredObject.material.emissive.setHex(0x222222);
+                    }
+                }
+                
+                document.body.style.cursor = shapes.includes(hoveredObject) ? 'pointer' : 'default';
+            } else {
+                document.body.style.cursor = 'default';
+            }
+        }
+        
+        function clearAll() {
+            // Clear shapes
+            shapes.forEach(shape => {
+                scene.remove(shape);
+                shape.geometry.dispose();
+                shape.material.dispose();
+            });
+            shapes = [];
+            
+            // Clear connections
+            connections.forEach(connection => {
+                scene.remove(connection);
+                connection.geometry.dispose();
+                connection.material.dispose();
+            });
+            connections = [];
+            
+            // Reset connection state
+            connectionStart = null;
+        }
+        
+        function randomizeColors() {
+            shapes.forEach(shape => {
+                if (shape && shape.material && shape.material.color) {
+                    const randomColor = new THREE.Color(Math.random(), Math.random(), Math.random());
+                    shape.material.color = randomColor;
+                }
+            });
+            
+            connections.forEach(connection => {
+                const randomColor = new THREE.Color(Math.random(), Math.random(), Math.random());
+                
+                if (connection.userData && connection.userData.type === 'arrow') {
+                    // Handle arrow groups - update both line and arrowhead
+                    connection.children.forEach(child => {
+                        if (child.material && child.material.color) {
+                            child.material.color = randomColor;
+                        }
+                    });
+                } else if (connection.material && connection.material.color) {
+                    // Handle simple lines
+                    connection.material.color = randomColor;
+                }
+            });
+        }
+        
+        function handleShapeSelection(shape) {
+            if (!connectionStart) {
+                // First shape selected
+                connectionStart = shape;
+                clearConnectionHighlights();
+                if (connectionStart && connectionStart.material && connectionStart.material.emissive) {
+                    connectionStart.material.emissive.setHex(0x004400); // Green highlight
+                }
+            } else if (connectionStart === shape) {
+                // Same shape clicked - deselect
+                if (connectionStart && connectionStart.material && connectionStart.material.emissive) {
+                    connectionStart.material.emissive.setHex(0x000000);
+                }
+                connectionStart = null;
+            } else {
+                // Second shape selected - create connection
+                createConnection(connectionStart, shape);
+                if (connectionStart && connectionStart.material && connectionStart.material.emissive) {
+                    connectionStart.material.emissive.setHex(0x000000);
+                }
+                connectionStart = null;
+            }
+        }
+        
+        function createConnection(startShape, endShape) {
+            const startPos = startShape.position.clone();
+            const endPos = endShape.position.clone();
+            
+            if (toolMode === 'line') {
+                createLine(startPos, endPos, startShape, endShape);
+            } else if (toolMode === 'arrow') {
+                createArrow(startPos, endPos, startShape, endShape);
+            }
+        }
+        
+        function createLine(startPos, endPos, startShape, endShape) {
+            const points = [startPos, endPos];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: currentColor,
+                linewidth: 3
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            line.userData = { type: 'line', startShape, endShape };
+            scene.add(line);
+            connections.push(line);
+        }
+        
+        function createArrow(startPos, endPos, startShape, endShape) {
+            // Create arrow shaft (line)
+            const points = [startPos, endPos];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: currentColor,
+                linewidth: 3
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            
+            // Create arrowhead (cone)
+            const direction = new THREE.Vector3().subVectors(endPos, startPos).normalize();
+            const arrowLength = 0.3;
+            const arrowRadius = 0.1;
+            
+            const arrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8);
+            const arrowMaterial = new THREE.MeshLambertMaterial({ color: currentColor });
+            const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial);
+            
+            // Position arrowhead at end
+            arrowHead.position.copy(endPos);
+            arrowHead.lookAt(startPos);
+            arrowHead.rotateX(Math.PI / 2);
+            
+            // Group line and arrowhead together
+            const arrowGroup = new THREE.Group();
+            arrowGroup.add(line);
+            arrowGroup.add(arrowHead);
+            arrowGroup.userData = { type: 'arrow', startShape, endShape };
+            
+            scene.add(arrowGroup);
+            connections.push(arrowGroup);
+        }
+        
+        function deleteShape(shape) {
+            // Remove connections that involve this shape
+            const connectedLines = connections.filter(conn => {
+                const userData = conn.userData;
+                return userData.startShape === shape || userData.endShape === shape;
+            });
+            
+            connectedLines.forEach(conn => deleteConnection(conn));
+            
+            // Remove the shape
+            scene.remove(shape);
+            shapes = shapes.filter(s => s !== shape);
+            shape.geometry.dispose();
+            shape.material.dispose();
+            
+            // Reset connection state if this was the selected shape
+            if (connectionStart === shape) {
+                connectionStart = null;
+            }
+            
+            // Remove from selection if this was selected
+            if (selectedObjects.includes(shape)) {
+                selectedObjects = selectedObjects.filter(obj => obj !== shape);
+                updateSelectionUI();
+            }
+        }
+        
+        function deleteConnection(connection) {
+            scene.remove(connection);
+            connections = connections.filter(conn => conn !== connection);
+            
+            // Handle disposal for both lines and arrow groups
+            if (connection.userData.type === 'arrow') {
+                connection.children.forEach(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+            } else {
+                connection.geometry.dispose();
+                connection.material.dispose();
+            }
+        }
+        
+        function setSelection(objects) {
+            // Clear previous selection
+            clearSelectionHighlights();
+            
+            selectedObjects = objects.filter(obj => shapes.includes(obj));
+            updateSelectionUI();
+            
+            // Highlight selected objects
+            selectedObjects.forEach(obj => {
+                if (obj.material && obj.material.emissive) {
+                    obj.material.emissive.setHex(0x444400); // Yellow highlight
+                }
+            });
+        }
+        
+        function clearSelection() {
+            clearSelectionHighlights();
+            selectedObjects = [];
+            updateSelectionUI();
+        }
+        
+        function clearSelectionHighlights() {
+            selectedObjects.forEach(obj => {
+                if (obj && obj.material && obj.material.emissive) {
+                    obj.material.emissive.setHex(0x000000);
+                }
+            });
+        }
+        
+        function toggleObjectSelection(object) {
+            if (selectedObjects.includes(object)) {
+                // Remove from selection
+                selectedObjects = selectedObjects.filter(obj => obj !== object);
+                if (object.material && object.material.emissive) {
+                    object.material.emissive.setHex(0x000000);
+                }
+            } else {
+                // Add to selection
+                selectedObjects.push(object);
+                if (object.material && object.material.emissive) {
+                    object.material.emissive.setHex(0x444400);
+                }
+            }
+            updateSelectionUI();
+        }
+        
+        function updateSelectionUI() {
+            const selectedControls = document.getElementById('selectedObjectControls');
+            const selectionLabel = document.getElementById('selectionLabel');
+            const groupBtn = document.getElementById('groupBtn');
+            const ungroupBtn = document.getElementById('ungroupBtn');
+            
+            if (selectedObjects.length === 0) {
+                selectedControls.style.display = 'none';
+                document.getElementById('currentScale').textContent = '—';
+            } else {
+                selectedControls.style.display = 'block';
+                
+                // Update label
+                if (selectedObjects.length === 1) {
+                    selectionLabel.textContent = 'Selected Object';
+                    groupBtn.style.display = 'none';
+                    ungroupBtn.style.display = selectedObjects[0].userData.isGroup ? 'inline-block' : 'none';
+                } else {
+                    selectionLabel.textContent = `Selected Objects (${selectedObjects.length})`;
+                    groupBtn.style.display = 'inline-block';
+                    ungroupBtn.style.display = 'none';
+                }
+                
+                // Update scale display
+                if (selectedObjects.length === 1) {
+                    const currentScale = selectedObjects[0].userData.scale || 1;
+                    document.getElementById('resizeSlider').value = currentScale;
+                    document.getElementById('currentScale').textContent = currentScale.toFixed(1) + '×';
+                } else {
+                    document.getElementById('currentScale').textContent = 'Multi';
+                }
+            }
+        }
+        
+        function setupDragging(object, intersectionPoint) {
+            isDragging = true;
+            // Calculate offset between object center and click point for smooth dragging
+            dragOffset.copy(object.position).sub(intersectionPoint);
+        }
+        
+        function setupGroupDragging(clickedObject, intersectionPoint) {
+            isDragging = true;
+            // Use the clicked object as the reference for the drag offset
+            dragOffset.copy(clickedObject.position).sub(intersectionPoint);
+        }
+        
+        function handleObjectDragging() {
+            if (selectedObjects.length === 0) return;
+            
+            // Cast ray to find new position on the grid
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(gridHelper);
+            
+            if (intersects.length > 0) {
+                const newPosition = intersects[0].point.add(dragOffset);
+                newPosition.y = 0; // Keep on grid
+                
+                if (selectedObjects.length === 1) {
+                    // Single object dragging
+                    selectedObjects[0].position.copy(newPosition);
+                } else {
+                    // Group dragging - maintain relative positions
+                    const referenceObject = selectedObjects[0];
+                    const deltaMove = new THREE.Vector3().copy(newPosition).sub(referenceObject.position);
+                    
+                    selectedObjects.forEach(obj => {
+                        obj.position.add(deltaMove);
+                    });
+                }
+            }
+        }
+        
+        function startSelectionBox() {
+            isSelectionDrag = true;
+            selectionStart.copy(mouse);
+        }
+        
+        function updateSelectionBox() {
+            // Visual feedback could be added here (selection rectangle)
+        }
+        
+        function finishSelectionBox() {
+            // Find objects within selection box
+            const selectionEnd = mouse.clone();
+            const minX = Math.min(selectionStart.x, selectionEnd.x);
+            const maxX = Math.max(selectionStart.x, selectionEnd.x);
+            const minY = Math.min(selectionStart.y, selectionEnd.y);
+            const maxY = Math.max(selectionStart.y, selectionEnd.y);
+            
+            const selectedInBox = [];
+            shapes.forEach(shape => {
+                // Project shape position to screen space
+                const screenPos = shape.position.clone().project(camera);
+                if (screenPos.x >= minX && screenPos.x <= maxX && 
+                    screenPos.y >= minY && screenPos.y <= maxY) {
+                    selectedInBox.push(shape);
+                }
+            });
+            
+            if (keys['ControlLeft'] || keys['ControlRight']) {
+                // Add to existing selection
+                selectedInBox.forEach(obj => {
+                    if (!selectedObjects.includes(obj)) {
+                        selectedObjects.push(obj);
+                        if (obj.material && obj.material.emissive) {
+                            obj.material.emissive.setHex(0x444400);
+                        }
+                    }
+                });
+            } else {
+                // Replace selection
+                setSelection(selectedInBox);
+            }
+            
+            updateSelectionUI();
+        }
+        
+        function selectAllObjects() {
+            setSelection([...shapes]);
+        }
+        
+        function updateConnections() {
+            connections.forEach(connection => {
+                const userData = connection.userData;
+                if (!userData.startShape || !userData.endShape) return;
+                
+                const startPos = userData.startShape.position;
+                const endPos = userData.endShape.position;
+                
+                if (userData.type === 'line') {
+                    // Update line geometry
+                    const points = [startPos.clone(), endPos.clone()];
+                    connection.geometry.setFromPoints(points);
+                } else if (userData.type === 'arrow') {
+                    // Update arrow line and head
+                    const line = connection.children[0];
+                    const arrowHead = connection.children[1];
+                    
+                    if (line && line.geometry) {
+                        const points = [startPos.clone(), endPos.clone()];
+                        line.geometry.setFromPoints(points);
+                    }
+                    
+                    if (arrowHead) {
+                        arrowHead.position.copy(endPos);
+                        arrowHead.lookAt(startPos);
+                        arrowHead.rotateX(Math.PI / 2);
+                    }
+                }
+            });
+        }
+        
+        function groupSelectedObjects() {
+            if (selectedObjects.length < 2) return;
+            
+            // Create group object
+            const group = new THREE.Group();
+            group.userData.isGroup = true;
+            group.userData.members = [...selectedObjects];
+            group.userData.scale = 1;
+            
+            // Calculate group center
+            const center = new THREE.Vector3();
+            selectedObjects.forEach(obj => center.add(obj.position));
+            center.divideScalar(selectedObjects.length);
+            group.position.copy(center);
+            
+            // Store relative positions and scales
+            selectedObjects.forEach(obj => {
+                obj.userData.groupOffset = obj.position.clone().sub(center);
+                obj.userData.originalScale = obj.userData.scale || 1;
+            });
+            
+            scene.add(group);
+            groups.push(group);
+            
+            // Replace selection with group
+            setSelection([group]);
+        }
+        
+        function ungroupSelectedObjects() {
+            if (selectedObjects.length !== 1 || !selectedObjects[0].userData.isGroup) return;
+            
+            const group = selectedObjects[0];
+            const members = group.userData.members;
+            
+            // Remove group
+            scene.remove(group);
+            groups = groups.filter(g => g !== group);
+            
+            // Select the ungrouped objects
+            setSelection(members);
+        }
+        
+        function copySelectedObjects() {
+            if (selectedObjects.length === 0) return;
+            
+            const copies = [];
+            
+            selectedObjects.forEach(obj => {
+                if (obj.userData.isGroup) {
+                    // Copy group members individually
+                    obj.userData.members.forEach(member => {
+                        const copy = member.clone();
+                        copy.position.x += 1;
+                        copy.position.z += 1;
+                        copy.userData = { ...member.userData };
+                        scene.add(copy);
+                        shapes.push(copy);
+                        copies.push(copy);
+                    });
+                } else {
+                    // Copy single object
+                    const copy = obj.clone();
+                    copy.position.x += 1;
+                    copy.position.z += 1;
+                    copy.userData = { ...obj.userData };
+                    scene.add(copy);
+                    shapes.push(copy);
+                    copies.push(copy);
+                }
+            });
+            
+            // Select the copies
+            setSelection(copies);
+            
+            // Animate in the copies
+            copies.forEach(copy => {
+                const targetScale = copy.userData.scale || 1;
+                copy.scale.setScalar(0);
+                animateIn(copy, targetScale);
+            });
+        }
+        
+        function deleteSelectedObjects() {
+            if (selectedObjects.length === 0) return;
+            
+            selectedObjects.forEach(obj => {
+                if (obj.userData.isGroup) {
+                    // Delete group members
+                    obj.userData.members.forEach(member => {
+                        deleteShape(member);
+                    });
+                    // Remove group
+                    scene.remove(obj);
+                    groups = groups.filter(g => g !== obj);
+                } else {
+                    deleteShape(obj);
+                }
+            });
+            
+            clearSelection();
+        }
+        
+        function resizeSelectedObjects(delta) {
+            if (selectedObjects.length === 0) return;
+            
+            selectedObjects.forEach(obj => {
+                if (obj.userData.isGroup) {
+                    // Resize group members proportionally
+                    const newGroupScale = Math.max(0.2, Math.min(4, (obj.userData.scale || 1) + delta));
+                    const scaleFactor = newGroupScale / (obj.userData.scale || 1);
+                    obj.userData.scale = newGroupScale;
+                    
+                    obj.userData.members.forEach(member => {
+                        // Scale the member
+                        const newMemberScale = Math.max(0.2, Math.min(4, member.userData.originalScale * newGroupScale));
+                        member.scale.setScalar(newMemberScale);
+                        member.userData.scale = newMemberScale;
+                        
+                        // Scale the position relative to group center
+                        const scaledOffset = member.userData.groupOffset.clone().multiplyScalar(scaleFactor);
+                        member.position.copy(obj.position).add(scaledOffset);
+                    });
+                } else {
+                    // Resize single object
+                    const currentScale = obj.userData.scale || 1;
+                    const newScale = Math.max(0.2, Math.min(4, currentScale + delta));
+                    obj.scale.setScalar(newScale);
+                    obj.userData.scale = newScale;
+                }
+            });
+            
+            updateSelectionUI();
+            updateConnections();
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Handle keyboard movement
+            handleKeyboardInput();
+            
+            // Smooth camera rotation
+            rotationX += (targetRotationX - rotationX) * 0.1;
+            rotationY += (targetRotationY - rotationY) * 0.1;
+            
+            // Update camera position based on rotation (only if not using keyboard movement)
+            if (!isKeyboardMoving()) {
+                const radius = camera.position.length();
+                camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
+                camera.position.y = radius * Math.sin(rotationX);
+                camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
+                camera.lookAt(0, 0, 0);
+            }
+            
+            // Gentle floating animation for shapes
+            const time = Date.now() * 0.001;
+            shapes.forEach((shape, index) => {
+                shape.rotation.x += 0.005;
+                shape.rotation.y += 0.005;
+                shape.position.y = Math.sin(time + index) * 0.1;
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        function handleKeyboardInput() {
+            const forward = new THREE.Vector3();
+            const right = new THREE.Vector3();
+            const up = new THREE.Vector3(0, 1, 0);
+            
+            camera.getWorldDirection(forward);
+            forward.y = 0; // Keep movement horizontal
+            forward.normalize();
+            right.crossVectors(forward, up);
+            
+            // Movement controls
+            if (keys['KeyW']) {
+                camera.position.add(forward.multiplyScalar(cameraSpeed));
+            }
+            if (keys['KeyS']) {
+                camera.position.add(forward.multiplyScalar(-cameraSpeed));
+            }
+            if (keys['KeyA']) {
+                camera.position.add(right.multiplyScalar(-cameraSpeed));
+            }
+            if (keys['KeyD']) {
+                camera.position.add(right.multiplyScalar(cameraSpeed));
+            }
+            if (keys['KeyQ']) {
+                camera.position.y += cameraSpeed;
+            }
+            if (keys['KeyE']) {
+                camera.position.y -= cameraSpeed;
+            }
+        }
+        
+        function isKeyboardMoving() {
+            return keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] || keys['KeyQ'] || keys['KeyE'];
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
